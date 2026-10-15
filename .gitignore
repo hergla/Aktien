@@ -16,3 +16,6 @@ instance/
 
 # VS Code
 .vscode/
+
+# Logs
+log/
