@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Aktiendepot Verwaltung</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .clickable-row {
+            cursor: pointer;
+        }
+        .clickable-row:hover {
+            background-color: #f1f3f5 !important;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Versteckte Datencontainer für sichere Übergabe an JavaScript -->
+    <div id="chart-data" 
+         data-currency='{{ currency_allocation | tojson | safe }}' 
+         data-history-dates='{{ history_dates | tojson | safe }}' 
+         data-history-values='{{ history_values | tojson | safe }}'
+         data-has-search="{{ 'true' if search_query or search_results else 'false' }}">
+    </div>
+
+    <div class="container my-4">
+        
+        <!-- Header mit Logout -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="mb-0">Mein Aktiendepot</h1>
+            <div>
+                <span class="me-3 text-muted">Angemeldet als <strong>{{ current_user.username }}</strong></span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Abmelden</a>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4" id="portfolioTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-bold" id="depot-tab" data-bs-toggle="tab" data-bs-target="#depot-content" type="button" role="tab">📊 Depot & Charts</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold" id="add-tab" data-bs-toggle="tab" data-bs-target="#add-content" type="button" role="tab">🔍 Suchen & Hinzufügen</button>
+            </li>
+        </ul>
+
+        <!-- Tab Inhalte -->
+        <div class="tab-content" id="portfolioTabsContent">
+            
+            <!-- TAB 1: DEPOT, KENNZAHLEN & CHARTS -->
+            <div class="tab-pane fade show active" id="depot-content" role="tabpanel">
+                
+                <!-- Oberer Bereich: Gesamtwert & Charts -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card text-white bg-primary shadow-sm mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Gesamtwert (EUR)</h5>
+                                <h3>{{ "%.2f"|format(total_value) }} €</h3>
+                            </div>
+                        </div>
+                        <!-- Währungsverteilung (Doughnut Chart) -->
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-white"><strong>Asset Allocation (Währungen)</strong></div>
+                            <div class="card-body">
+                                <canvas id="allocationChart" style="max-height: 200px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historischer Depotverlauf (Line Chart) -->
+                    <div class="col-md-8">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-white"><strong>Depotverlauf (Gesamtwert in EUR)</strong></div>
+                            <div class="card-body">
+                                <canvas id="historyChart" style="max-height: 250px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Depot-Übersicht Tabelle -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <strong>Positionen im Depot</strong> 
+                        <small class="text-muted float-end">(Klicke auf eine Zeile für Details & Transaktionen)</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Name</th>
+                                        <th>Stück</th>
+                                        <th>Einstandskurs</th>
+                                        <th>Aktueller Kurs</th>
+                                        <th>Wert (EUR)</th>
+                                        <th>Gewinn / Verlust</th>
+                                        <th>Letzte Div.</th>
+                                        <th>Div.-Rendite</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <tr class="clickable-row" data-bs-toggle="modal" data-bs-target="#modal-asset-{{ item.id }}">
+                                        <td><strong>{{ item.symbol }}</strong></td>
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ item.shares }}</td>
+                                        <td>{{ "%.2f"|format(item.avg_buy_price) }} {{ item.currency }}</td>
+                                        <td>{{ "%.2f"|format(item.current_price) }} {{ item.currency }}</td>
+                                        <td>{{ "%.2f"|format(item.current_value_eur) }} €</td>
+                                        <td class="{% if item.pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ "%.2f"|format(item.pnl) }} € ({{ "%.2f"|format(item.pnl_percent) }}%)
+                                        </td>
+                                        <td>{{ item.last_dividend }} {{ item.currency }}</td>
+                                        <td class="text-success fw-bold">{{ item.yahoo_yield }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted">Noch keine Bestände vorhanden. Nutze den Reiter "Suchen & Hinzufügen", um zu starten.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: SUCHEN & HINZUFÜGEN -->
+            <div class="tab-pane fade" id="add-content" role="tabpanel">
+                <div class="row">
+                    <!-- Aktien-Suche -->
+                    <div class="col-md-12 mb-4">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-white"><strong>Yahoo Aktien- & ETF-Suche</strong></div>
+                            <div class="card-body">
+                                <form action="{{ url_for('index') }}" method="GET" class="input-group mb-3">
+                                    <input type="text" class="form-control" name="q" value="{{ search_query }}" placeholder="Firmenname oder ETF eingeben (z.B. Allianz, iShares, Apple)...">
+                                    <button class="btn btn-outline-secondary" type="submit">Suchen</button>
+                                </form>
+
+                                {% if search_results %}
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped align-middle">
+                                       <thead>
+                                           <tr>
+                                               <th>Symbol</th>
+                                               <th>Name</th>
+                                               <th>Börse</th>
+                                               <th>Typ</th>
+                                               <th>Aktion</th>
+                                           </tr>
+                                       </thead>
+                                       <tbody>
+                                           {% for res in search_results %}
+                                           <tr>
+                                               <td><code>{{ res.symbol }}</code></td>
+                                               <td>{{ res.longname }}</td>
+                                               <td>{{ res.exchange }}</td>
+                                               <td>
+                                                   <span class="badge {% if res.quoteType == 'ETF' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                                       {{ res.quoteType }}
+                                                   </span>
+                                               </td>
+                                               <td>
+                                                   <button type="button" class="btn btn-sm btn-outline-primary btn-select" data-symbol="{{ res.symbol }}" data-name="{{ res.longname }}">
+                                                       Übernehmen
+                                                   </button>
+                                               </td>
+                                           </tr>
+                                           {% endfor %}
+                                       </tbody>
+                                    </table>
+                                </div>
+                                {% elif search_query %}
+                                <p class="text-muted">Keine Ergebnisse für "{{ search_query }}" gefunden.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Asset hinzufügen -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-white"><strong>Neues Asset anlegen</strong></div>
+                            <div class="card-body">
+                                <form action="{{ url_for('add_asset') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label">Ticker-Symbol</label>
+                                        <input type="text" class="form-control" id="symbolInput" name="symbol" placeholder="z.B. ALV.DE" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Unternehmensname</label>
+                                        <input type="text" class="form-control" id="nameInput" name="name" placeholder="z.B. Allianz SE" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Währung</label>
+                                        <select class="form-select" name="currency">
+                                            <option value="EUR">EUR</option>
+                                            <option value="USD">USD</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-success">Asset speichern</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transaktion hinzufügen -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-white"><strong>Kauf / Transaktion erfassen</strong></div>
+                            <div class="card-body">
+                                <form action="{{ url_for('add_transaction') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label">Asset wählen</label>
+                                        <select class="form-select" name="asset_id" required>
+                                            {% for asset in assets %}
+                                            <option value="{{ asset.id }}">{{ asset.name }} ({{ asset.symbol }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Stückzahl</label>
+                                        <input type="number" step="any" class="form-control" name="shares" placeholder="z.B. 10" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Kaufpreis (pro Stück)</label>
+                                        <input type="number" step="any" class="form-control" name="price" placeholder="z.B. 245.50" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Transaktion buchen</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODALS FÜR JEDES ASSET (KENNZAHLEN, TRANSAKTIONEN & DIVIDENDEN) -->
+    {% for item in items %}
+    <div class="modal fade" id="modal-asset-{{ item.id }}" tabindex="-1" aria-labelledby="modalLabel{{ item.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel{{ item.id }}">{{ item.name }} ({{ item.symbol }}) – Details & Verwaltung</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    <!-- Yahoo Kennzahlen Badge-Leiste -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                                <small class="text-muted">KGV (P/E Ratio)</small>
+                                <h5>{{ asset_metrics[item.id].pe_ratio }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                                <small class="text-muted">Letzte Div. (Yahoo)</small>
+                                <h5>{{ asset_metrics[item.id].last_dividend }} {{ item.currency }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                                <small class="text-muted">Beta (Volatilität)</small>
+                                <h5>{{ asset_metrics[item.id].beta }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                                <small class="text-muted">Div.-Rendite (Yahoo)</small>
+                                <h5 class="text-success">{{ asset_metrics[item.id].yahoo_yield }}</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Transaktionen Spalte -->
+                        <div class="col-md-6">
+                            <h6>Transaktionen (Käufe)</h6>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Stück</th>
+                                        <th>Preis</th>
+                                        <th>Aktion</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in item.transactions %}
+                                    <tr>
+                                        <td>#{{ tx.id }}</td>
+                                        <form action="{{ url_for('update_transaction', tx_id=tx.id) }}" method="POST">
+                                        <td><input type="number" step="any" class="form-control form-control-sm" name="shares" value="{{ tx.shares }}" required style="width: 80px;"></td>
+                                        <td><input type="number" step="any" class="form-control form-control-sm" name="price" value="{{ tx.price }}" required style="width: 90px;"></td>
+                                        <td>
+                                            <button type="submit" class="btn btn-sm btn-primary">Ändern</button>
+                                        </form>
+                                            <form action="{{ url_for('delete_transaction', tx_id=tx.id) }}" method="POST" style="display:inline;">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Wirklich löschen?');">X</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Dividenden Spalte -->
+                        <div class="col-md-6">
+                            <h6>Erhaltene Dividenden</h6>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Betrag (EUR)</th>
+                                        <th>Aktion</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for div in item.dividends %}
+                                    <tr>
+                                        <td>{{ div.date }}</td>
+                                        <td>{{ "%.2f"|format(div.amount_eur) }} €</td>
+                                        <td>
+                                            <form action="{{ url_for('delete_dividend', div_id=div.id) }}" method="POST" style="display:inline;">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Dividende löschen?');">Löschen</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-muted">Bisher keine Dividenden erfasst.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+
+                            <!-- Dividende hinzufügen Formular -->
+                            <form action="{{ url_for('add_dividend') }}" method="POST" class="row g-2 mt-3 bg-light p-2 rounded border">
+                                <input type="hidden" name="asset_id" value="{{ item.id }}">
+                                <div class="col-5">
+                                    <input type="number" step="any" class="form-control form-control-sm" name="amount_eur" placeholder="Betrag in €" required>
+                                </div>
+                                <div class="col-5">
+                                    <input type="date" class="form-control form-control-sm" name="date" required>
+                                </div>
+                                <div class="col-2">
+                                    <button type="submit" class="btn btn-sm btn-success w-100">+</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- JavaScript für Charts & Auswahl -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const dataContainer = document.getElementById('chart-data');
+            const currencyData = JSON.parse(dataContainer.getAttribute('data-currency'));
+            const historyDates = JSON.parse(dataContainer.getAttribute('data-history-dates'));
+            const historyValues = JSON.parse(dataContainer.getAttribute('data-history-values'));
+            const hasSearch = dataContainer.getAttribute('data-has-search') === 'true';
+            
+            // Wenn ein Hash wie #add-content in der URL steht, direkt diesen Tab aktivieren
+            if (window.location.hash === '#add-content') {
+                const addTabTrigger = document.querySelector('#add-tab');
+                if (addTabTrigger) {
+                    new bootstrap.Tab(addTabTrigger).show();
+                }
+            }
+            document.querySelectorAll('.btn-select').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.getElementById('symbolInput').value = this.getAttribute('data-symbol');
+                    document.getElementById('nameInput').value = this.getAttribute('data-name');
+                    document.getElementById('symbolInput').focus();
+                });
+            });
+
+            // Tab nur dann auf Suchen wechseln, wenn eine echte Suche durchgeführt wurde
+            if (hasSearch) {
+                const addTabTrigger = document.querySelector('#add-tab');
+                if (addTabTrigger) {
+                    new bootstrap.Tab(addTabTrigger).show();
+                }
+            }
+
+            const allocationCtx = document.getElementById('allocationChart').getContext('2d');
+            new Chart(allocationCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(currencyData),
+                    datasets: [{
+                        data: Object.values(currencyData),
+                        backgroundColor: ['#0d6efd', '#ffc107', '#198754', '#dc3545']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            const historyCtx = document.getElementById('historyChart').getContext('2d');
+            new Chart(historyCtx, {
+                type: 'line',
+                data: {
+                    labels: historyDates,
+                    datasets: [{
+                        label: 'Depotwert (€)',
+                        data: historyValues,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

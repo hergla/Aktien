@@ -1,0 +1,18 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+stockprices.py
+x.py
+x
+
+# SQLite Datenbank (lokale Depot-Daten)
+instance/
+*.db
+
+# VS Code
+.vscode/
