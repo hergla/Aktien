@@ -30,66 +30,80 @@ Diese Anleitung beschreibt die Einrichtung auf einem Linux-Server mit systemd un
 
 ### 1. Repository klonen & Verzeichnis vorbereiten
 ```bash
-git clone [https://github.com/dein-benutzername/dein-repo.git](https://github.com/dein-benutzername/dein-repo.git) ~/Aktien
+git clone https://github.com/hergla/Aktien.git ~/Aktien
 cd ~/Aktien
-2. Python Virtual Environment (venv) einrichten
-Erstelle ein virtuelles Environment und installiere die benötigten Abhängigkeiten:
+```
 
-Bash
+### 2. Python Virtual Environment (`venv`) einrichten
+Erstelle ein virtuelles Environment und installiere die benötigten Abhängigkeiten:
+```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-3. Gunicorn-Konfiguration erstellen
-Erstelle im Projektverzeichnis (~/Aktien) eine Konfigurationsdatei namens gunicorn.conf.py:
+```
 
-Python
+### 3. Gunicorn-Konfiguration erstellen
+Erstelle im Projektverzeichnis (`~/Aktien`) eine Konfigurationsdatei namens `gunicorn.conf.py`:
+
+```python
 workers = 3
 bind = "127.0.0.1:5002"
 accesslog = "/home/hergen/Aktien/log/access.log"
 errorlog = "/home/hergen/Aktien/log/error.log"
 accesslogformat = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 loglevel = "info"
-(Hinweis: Erstelle vorher den Log-Ordner mit mkdir -p ~/Aktien/log)
+```
+*(Hinweis: Erstelle vorher den Log-Ordner mit `mkdir -p ~/Aktien/log`)*
 
-⚙️ systemd Service einrichten
+---
+
+## ⚙️ systemd Service einrichten
+
 Damit die Anwendung als Hintergrunddienst stabil läuft und beim Systemstart automatisch mitgestartet wird, richte einen systemd-Service ein.
 
-Erstelle die Service-Datei mit Root-Rechten:
+1. Erstelle die Service-Datei mit Root-Rechten:
+   ```bash
+   sudo nano /etc/systemd/system/hlaktien.service
+   ```
 
-Bash
-sudo nano /etc/systemd/system/hlaktien.service
-Füge folgenden Inhalt ein (Pfade, Benutzer und Umgebungsvariablen ggf. anpassen):
+2. Füge folgenden Inhalt ein (Pfade, Benutzer und Umgebungsvariablen ggf. anpassen):
+   ```ini
+   [Unit]
+   Description=Gunicorn instance to serve Flask Aktiendepot
+   After=network.target
 
-Ini, TOML
-[Unit]
-Description=Gunicorn instance to serve Flask Aktiendepot
-After=network.target
+   [Service]
+   User=hergen
+   Group=hergen
+   WorkingDirectory=/home/hergen/Aktien
+   Environment="PATH=/home/hergen/Aktien/venv/bin"
+   Environment="SECRET_KEY=dein-geheimer-schluessel-hier"
+   ExecStart=/home/hergen/Aktien/venv/bin/gunicorn -c gunicorn.conf.py app:app
 
-[Service]
-User=hergen
-Group=hergen
-WorkingDirectory=/home/hergen/Aktien
-Environment="PATH=/home/hergen/Aktien/venv/bin"
-Environment="SECRET_KEY=dein-geheimer-schluessel-hier"
-ExecStart=/home/hergen/Aktien/venv/bin/gunicorn -c gunicorn.conf.py app:app
+   [Install]
+   WantedBy=multi-user.target
+   ```
 
-[Install]
-WantedBy=multi-user.target
-systemd neu laden und den Dienst aktivieren sowie starten:
+3. systemd neu laden und den Dienst aktivieren sowie starten:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl start hlaktien.service
+   sudo systemctl enable hlaktien.service
+   ```
 
-Bash
-sudo systemctl daemon-reload
-sudo systemctl start hlaktien.service
-sudo systemctl enable hlaktien.service
-Status des Dienstes prüfen:
+4. Status des Dienstes prüfen:
+   ```bash
+   sudo systemctl status hlaktien.service
+   ```
 
-Bash
-sudo systemctl status hlaktien.service
-🌐 Apache Reverse Proxy & SSL Konfiguration
-Um die App sicher per HTTPS (Port 443) über Apache erreichbar zu machen, lege eine VirtualHost-Konfiguration an (z. B. unter /etc/httpd/conf.d/aktien-ssl.conf):
+---
 
-Apache
+## 🌐 Apache Reverse Proxy & SSL Konfiguration
+
+Um die App sicher per HTTPS (Port 443) über Apache erreichbar zu machen, lege eine VirtualHost-Konfiguration an (z. B. unter `/etc/httpd/conf.d/aktien-ssl.conf`):
+
+```apache
 <VirtualHost *:443>
     ServerName deine-domain.de
 
@@ -98,15 +112,20 @@ Apache
     SSLCertificateKeyFile /pfad/zu/privkey.pem
 
     ProxyPreserveHost On
-    ProxyPass / [http://127.0.0.1:5002/](http://127.0.0.1:5002/)
-    ProxyPassReverse / [http://127.0.0.1:5002/](http://127.0.0.1:5002/)
+    ProxyPass / http://127.0.0.1:5002/
+    ProxyPassReverse / http://127.0.0.1:5002/
 
     RequestHeader set X-Forwarded-Proto "https"
 </VirtualHost>
-Teste die Konfiguration und starte den Apache-Webserver neu:
+```
 
-Bash
+Teste die Konfiguration und starte den Apache-Webserver neu:
+```bash
 sudo apachectl configtest
 sudo systemctl restart httpd
-📝 Lizenz
+```
+
+---
+
+## 📝 Lizenz
 Dieses Projekt ist für den privaten Gebrauch bestimmt.
