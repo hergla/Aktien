@@ -226,7 +226,7 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
-            flash('Erfolgreich angemeldet.', 'success')
+            #flash('Erfolgreich angemeldet.', 'success')
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         else:
@@ -275,7 +275,7 @@ def add_asset():
         new_asset = Asset(symbol=symbol, name=name, currency=currency)
         db.session.add(new_asset)
         db.session.commit()
-        flash(f'Asset {symbol} erfolgreich hinzugefügt.', 'success')
+        #flash(f'Asset {symbol} erfolgreich hinzugefügt.', 'success')
     except Exception:
         db.session.rollback()
         flash(f'Fehler: Das Asset "{symbol}" existiert bereits.', 'warning')
@@ -292,7 +292,7 @@ def add_transaction():
         tx = Transaction(asset_id=asset_id, shares=shares, price=price)
         db.session.add(tx)
         db.session.commit()
-        flash('Transaktion erfolgreich gebucht.', 'success')
+        #flash('Transaktion erfolgreich gebucht.', 'success')
     except Exception:
         db.session.rollback()
         flash('Fehler beim Speichern der Transaktion.', 'danger')
@@ -308,7 +308,7 @@ def add_dividend():
         d = Dividend(asset_id=asset_id, amount_eur=amount_eur, date=date.fromisoformat(div_date) if div_date else date.today())
         db.session.add(d)
         db.session.commit()
-        flash('Dividende erfolgreich gebucht.', 'success')
+        #flash('Dividende erfolgreich gebucht.', 'success')
     except Exception:
         db.session.rollback()
         flash('Fehler beim Speichern der Dividende.', 'danger')
@@ -322,7 +322,7 @@ def update_transaction(tx_id):
         tx.shares = float(request.form.get('shares'))
         tx.price = float(request.form.get('price'))
         db.session.commit()
-        flash('Transaktion aktualisiert.', 'success')
+        #flash('Transaktion aktualisiert.', 'success')
     except Exception:
         db.session.rollback()
         flash('Fehler beim Aktualisieren.', 'danger')
@@ -335,7 +335,7 @@ def delete_transaction(tx_id):
     try:
         db.session.delete(tx)
         db.session.commit()
-        flash('Transaktion gelöscht.', 'success')
+        #flash('Transaktion gelöscht.', 'success')
     except Exception:
         db.session.rollback()
         flash('Fehler beim Löschen.', 'danger')
@@ -348,7 +348,7 @@ def delete_dividend(div_id):
     try:
         db.session.delete(div)
         db.session.commit()
-        flash('Dividende gelöscht.', 'success')
+        #flash('Dividende gelöscht.', 'success')
     except Exception:
         db.session.rollback()
         flash('Fehler beim Löschen.', 'danger')
