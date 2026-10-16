@@ -13,6 +13,9 @@
         .clickable-row:hover {
             background-color: #f1f3f5 !important;
         }
+        .metric-card {
+            cursor: help;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -254,7 +257,7 @@
         </div>
     </div>
 
-    <!-- MODALS FÜR JEDES ASSET (KENNZAHLEN, TRANSAKTIONEN & DIVIDENDEN) -->
+    <!-- MODALS FÜR JEDES ASSET -->
     {% for item in items %}
     <div class="modal fade" id="modal-asset-{{ item.id }}" tabindex="-1" aria-labelledby="modalLabel{{ item.id }}" aria-hidden="true">
         <div class="modal-dialog modal-xl">
@@ -266,29 +269,71 @@
                 <div class="modal-body">
                     
                     <!-- Yahoo Kennzahlen Badge-Leiste -->
-                    <div class="row mb-4">
+                    <div class="row g-3 mb-4">
                         <div class="col-md-3">
-                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="Kurs-Gewinn-Verhältnis (P/E Ratio): Verhältnis von Aktienkurs zum Gewinn je Aktie.">
                                 <small class="text-muted">KGV (P/E Ratio)</small>
                                 <h5>{{ asset_metrics[item.id].pe_ratio }}</h5>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="Die letzte jährliche bzw. periodische Dividendenzahlung pro Aktie in Originalwährung.">
                                 <small class="text-muted">Letzte Div. (Yahoo)</small>
                                 <h5>{{ asset_metrics[item.id].last_dividend }} {{ item.currency }}</h5>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="Ex-Dividend-Datum (exDividendDate): Stichtag, ab dem die Aktie ohne Anspruch auf die nächste Dividende gehandelt wird.">
+                                <small class="text-muted">Ex-Dividenden-Datum</small>
+                                <h5>{{ asset_metrics[item.id].ex_div_date }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="Beta-Faktor: Maß für die Kursschwankung der Aktie im Vergleich zum Gesamtmarkt.">
                                 <small class="text-muted">Beta (Volatilität)</small>
                                 <h5>{{ asset_metrics[item.id].beta }}</h5>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="p-3 border bg-white rounded shadow-sm text-center">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="Höchster Kurs der Aktie in den vergangenen 52 Wochen.">
+                                <small class="text-muted">52-Wochen-Hoch</small>
+                                <h5>{{ asset_metrics[item.id].high_52 }} {{ item.currency }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="Tiefster Kurs der Aktie in den vergangenen 52 Wochen.">
+                                <small class="text-muted">52-Wochen-Tief</small>
+                                <h5>{{ asset_metrics[item.id].low_52 }} {{ item.currency }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="All-Time High (Allzeithoch): Höchster jemals verzeichneter Kurs der Aktie.">
+                                <small class="text-muted">All-Time High (ATH)</small>
+                                <h5>{{ asset_metrics[item.id].ath }} {{ item.currency }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="All-Time Low (Allzeittief): Niedrigster jemals verzeichneter Kurs der Aktie.">
+                                <small class="text-muted">All-Time Low (ATL)</small>
+                                <h5>{{ asset_metrics[item.id].atl }} {{ item.currency }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="p-3 border bg-white rounded shadow-sm text-center metric-card" title="Dividendenrendite: Jährliche Dividendenzahlung gemessen am aktuellen Aktienkurs in Prozent.">
                                 <small class="text-muted">Div.-Rendite (Yahoo)</small>
                                 <h5 class="text-success">{{ asset_metrics[item.id].yahoo_yield }}</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Jahreschart für dieses Asset -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-white"><strong>Kursverlauf (letzte 12 Monate)</strong></div>
+                                <div class="card-body" style="position: relative; height: 250px;">
+                                    <canvas id="chart-asset-{{ item.id }}"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -390,7 +435,6 @@
             const historyValues = JSON.parse(dataContainer.getAttribute('data-history-values'));
             const hasSearch = dataContainer.getAttribute('data-has-search') === 'true';
             
-            // Wenn ein Hash wie #add-content in der URL steht, direkt diesen Tab aktivieren
             if (window.location.hash === '#add-content') {
                 const addTabTrigger = document.querySelector('#add-tab');
                 if (addTabTrigger) {
@@ -405,7 +449,6 @@
                 });
             });
 
-            // Tab nur dann auf Suchen wechseln, wenn eine echte Suche durchgeführt wurde
             if (hasSearch) {
                 const addTabTrigger = document.querySelector('#add-tab');
                 if (addTabTrigger) {
@@ -448,6 +491,69 @@
                     maintainAspectRatio: false
                 }
             });
+
+            // Asynchrones Laden und Rendern der Jahrescharts beim Öffnen des jeweiligen Modals
+            {% for item in items %}
+            const modal_{{ item.id }} = document.getElementById('modal-asset-{{ item.id }}');
+            if (modal_{{ item.id }}) {
+                let chartLoaded_{{ item.id }} = false;
+                modal_{{ item.id }}.addEventListener('shown.bs.modal', function () {
+                    if (!chartLoaded_{{ item.id }}) {
+                        chartLoaded_{{ item.id }} = true;
+                        
+                        fetch("{{ url_for('api_asset_history', symbol=item.symbol) }}")
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.dates && data.dates.length > 0) {
+                                    const ctx = document.getElementById('chart-asset-{{ item.id }}').getContext('2d');
+                                    new Chart(ctx, {
+                                        type: 'line',
+                                        data: {
+                                            labels: data.dates,
+                                            datasets: [{
+                                                label: '{{ item.symbol }} ({{ item.currency }})',
+                                                data: data.prices,
+                                                borderColor: '#198754',
+                                                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                                                borderWidth: 2,
+                                                fill: true,
+                                                tension: 0.1,
+                                                pointRadius: 0,
+                                                pointHoverRadius: 4
+                                            }]
+                                        },
+                                        options: {
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            animation: false,
+                                            plugins: {
+                                                legend: { display: false }
+                                            },
+                                            scales: {
+                                                x: {
+                                                    ticks: {
+                                                        maxTicksLimit: 8,
+                                                        autoSkip: true
+                                                    },
+                                                    grid: {
+                                                        display: false
+                                                    }
+                                                },
+                                                y: {
+                                                    grid: {
+                                                        color: '#f1f3f5'
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+                            })
+                            .catch(err => console.error("Fehler beim Laden des Charts für {{ item.symbol }}:", err));
+                    }
+                });
+            }
+            {% endfor %}
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

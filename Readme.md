@@ -1,2 +1,112 @@
-## Aktien.
+# Aktiendepot & Portfolio-Verwaltung
 
+Eine moderne, webbasierte Flask-Anwendung zur Verwaltung eines persönlichen Aktiendepots. Die Anwendung holt Live- und historische Marktdaten über die Yahoo Finance API (`yahooquery`) ein, visualisiert den Depotverlauf sowie Einzelwerte mit Chart.js und bietet eine übersichtliche Detailansicht inklusive umfassender Kennzahlen (KGV, Beta, Dividendenrendite, Ex-Div-Datum, 52W-Hoch/Tief, All-Time High/Low) mit erklärenden Tooltips.
+
+## 🚀 Features
+
+* **Depot-Übersicht:** Gesamtwert in EUR, Gewinn/Verlust-Berechnung (unterstützt EUR- und USD-Assets mit automatischer Währungsumrechnung).
+* **Asset-Detailansicht (Modals):** 
+  * Umfassende Yahoo-Finanzkennzahlen (KGV, Beta, Dividenden, Ex-Div-Datum, 52-Wochen-Spanne, ATH/ATL) mit Hover-Erklärungen.
+  * Asynchron per Fetch nachgeladener 1-Jahres-Kursverlaufs-Chart mit optimierter Achsendarstellung.
+* **Transaktions- & Dividendenmanagement:** Käufe erfassen, bearbeiten oder löschen sowie erfasste Dividenden verwalten.
+* **Aktiensuche:** Integrierte Yahoo-Suche zum schnellen Finden und Anlegen von Aktien und ETFs.
+* **Charts:** Interaktive Diagramme (Asset-Allocation nach Währungen, historischer Depotverlauf, Einzelkurs-Charts) via Chart.js.
+* **Sicherheit:** Benutzerauthentifizierung via Flask-Login (Passwort-Hashing).
+
+---
+
+## 🛠️ Technische Architektur
+
+* **Backend:** Python 3.12+, Flask, Flask-SQLAlchemy, Flask-Login, `yahooquery`
+* **Frontend:** Bootstrap 5, Chart.js
+* **Datenbank:** SQLite (`portfolio.db`)
+* **Production Stack:** Gunicorn (WSGI-Server) hinter einem Apache Reverse Proxy (mit SSL) unter Linux / Oracle Linux.
+
+---
+
+## 📦 Installation & Einrichtung (Linux / Produktionsserver)
+
+Diese Anleitung beschreibt die Einrichtung auf einem Linux-Server mit systemd und Gunicorn.
+
+### 1. Repository klonen & Verzeichnis vorbereiten
+```bash
+git clone [https://github.com/dein-benutzername/dein-repo.git](https://github.com/dein-benutzername/dein-repo.git) ~/Aktien
+cd ~/Aktien
+2. Python Virtual Environment (venv) einrichten
+Erstelle ein virtuelles Environment und installiere die benötigten Abhängigkeiten:
+
+Bash
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+3. Gunicorn-Konfiguration erstellen
+Erstelle im Projektverzeichnis (~/Aktien) eine Konfigurationsdatei namens gunicorn.conf.py:
+
+Python
+workers = 3
+bind = "127.0.0.1:5002"
+accesslog = "/home/hergen/Aktien/log/access.log"
+errorlog = "/home/hergen/Aktien/log/error.log"
+accesslogformat = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
+loglevel = "info"
+(Hinweis: Erstelle vorher den Log-Ordner mit mkdir -p ~/Aktien/log)
+
+⚙️ systemd Service einrichten
+Damit die Anwendung als Hintergrunddienst stabil läuft und beim Systemstart automatisch mitgestartet wird, richte einen systemd-Service ein.
+
+Erstelle die Service-Datei mit Root-Rechten:
+
+Bash
+sudo nano /etc/systemd/system/hlaktien.service
+Füge folgenden Inhalt ein (Pfade, Benutzer und Umgebungsvariablen ggf. anpassen):
+
+Ini, TOML
+[Unit]
+Description=Gunicorn instance to serve Flask Aktiendepot
+After=network.target
+
+[Service]
+User=hergen
+Group=hergen
+WorkingDirectory=/home/hergen/Aktien
+Environment="PATH=/home/hergen/Aktien/venv/bin"
+Environment="SECRET_KEY=dein-geheimer-schluessel-hier"
+ExecStart=/home/hergen/Aktien/venv/bin/gunicorn -c gunicorn.conf.py app:app
+
+[Install]
+WantedBy=multi-user.target
+systemd neu laden und den Dienst aktivieren sowie starten:
+
+Bash
+sudo systemctl daemon-reload
+sudo systemctl start hlaktien.service
+sudo systemctl enable hlaktien.service
+Status des Dienstes prüfen:
+
+Bash
+sudo systemctl status hlaktien.service
+🌐 Apache Reverse Proxy & SSL Konfiguration
+Um die App sicher per HTTPS (Port 443) über Apache erreichbar zu machen, lege eine VirtualHost-Konfiguration an (z. B. unter /etc/httpd/conf.d/aktien-ssl.conf):
+
+Apache
+<VirtualHost *:443>
+    ServerName deine-domain.de
+
+    SSLEngine on
+    SSLCertificateFile /pfad/zu/fullchain.pem
+    SSLCertificateKeyFile /pfad/zu/privkey.pem
+
+    ProxyPreserveHost On
+    ProxyPass / [http://127.0.0.1:5002/](http://127.0.0.1:5002/)
+    ProxyPassReverse / [http://127.0.0.1:5002/](http://127.0.0.1:5002/)
+
+    RequestHeader set X-Forwarded-Proto "https"
+</VirtualHost>
+Teste die Konfiguration und starte den Apache-Webserver neu:
+
+Bash
+sudo apachectl configtest
+sudo systemctl restart httpd
+📝 Lizenz
+Dieses Projekt ist für den privaten Gebrauch bestimmt.

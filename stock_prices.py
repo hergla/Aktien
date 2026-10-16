@@ -18,7 +18,8 @@ def get_prices_in_eur(ticker_symbols):
     prices = t.price
     summary = t.summary_detail
     statistic = t.key_stats
-    pprint(statistic)
+    hist_df = t.history(period='1y')
+    pprint(hist_df)
     # Den aktuellen USD/EUR Wechselkurs holen
     usd_eur_rate = None
     rate_data = prices.get("USDEUR=X")

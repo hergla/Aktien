@@ -1,4 +1,5 @@
 import os
+from datetime import date
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -6,7 +7,6 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 from yahooquery import Ticker
 from aktiensuche import searchbyname
-from datetime import date
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portfolio.db'
@@ -58,12 +58,11 @@ with app.app_context():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # --- HILFSFUNKTION FÜR DEPOT & YAHOO KENNZAHLEN ---
 
 def get_portfolio_data():
-    # Assets alphabetisch nach Namen sortiert abrufen
     assets = Asset.query.order_by(Asset.name.asc()).all()
     if not assets:
         return [], 0.0, {}, [], [], {}
@@ -121,17 +120,35 @@ def get_portfolio_data():
         else:
             currency_allocation[asset.currency] = current_value_eur
 
-        pe_ratio, high_52, low_52, beta, last_dividend, yahoo_yield = "N/A", "N/A", "N/A", "N/A", "N/A", 0.0
+        pe_ratio = "N/A"
+        high_52 = "N/A"
+        low_52 = "N/A"
+        ath = "N/A"
+        atl = "N/A"
+        beta = "N/A"
+        last_dividend = "N/A"
+        ex_div_date = "N/A"
+        yahoo_yield = 0.0
+
         try:
             if isinstance(summary_detail, dict) and asset.symbol in summary_detail:
                 sd = summary_detail[asset.symbol]
                 if isinstance(sd, dict):
                     high_52 = sd.get("fiftyTwoWeekHigh", "N/A")
                     low_52 = sd.get("fiftyTwoWeekLow", "N/A")
+                    ath = sd.get("allTimeHigh", "N/A")
+                    atl = sd.get("allTimeLow", "N/A")
                     last_dividend = sd.get("dividendRate", sd.get("trailingAnnualDividendRate", "N/A"))
+                    
+                    # Ex-Dividend-Datum direkt auslesen und Datumsteil extrahieren (YYYY-MM-DD)
+                    raw_ex_div = sd.get("exDividendDate")
+                    if isinstance(raw_ex_div, str) and len(raw_ex_div) >= 10:
+                        ex_div_date = raw_ex_div[:10]
+
                     raw_yield = sd.get("dividendYield", 0.0)
                     if isinstance(raw_yield, (int, float)):
                         yahoo_yield = raw_yield * 100
+
             if isinstance(key_stats, dict) and asset.symbol in key_stats:
                 ks = key_stats[asset.symbol]
                 if isinstance(ks, dict):
@@ -142,13 +159,20 @@ def get_portfolio_data():
 
         formatted_last_div = f"{last_dividend:.2f}" if isinstance(last_dividend, (int, float)) else "N/A"
         formatted_yahoo_yield = f"{yahoo_yield:.2f}%" if yahoo_yield > 0 else "N/A"
+        formatted_high_52 = f"{high_52:.2f}" if isinstance(high_52, (int, float)) else "N/A"
+        formatted_low_52 = f"{low_52:.2f}" if isinstance(low_52, (int, float)) else "N/A"
+        formatted_ath = f"{ath:.2f}" if isinstance(ath, (int, float)) else "N/A"
+        formatted_atl = f"{atl:.2f}" if isinstance(atl, (int, float)) else "N/A"
 
         asset_metrics[asset.id] = {
             "pe_ratio": round(pe_ratio, 2) if isinstance(pe_ratio, (int, float)) else pe_ratio,
-            "high_52": high_52,
-            "low_52": low_52,
+            "high_52": formatted_high_52,
+            "low_52": formatted_low_52,
+            "ath": formatted_ath,
+            "atl": formatted_atl,
             "beta": round(beta, 2) if isinstance(beta, (int, float)) else beta,
             "last_dividend": formatted_last_div,
+            "ex_div_date": ex_div_date,
             "yahoo_yield": formatted_yahoo_yield
         }
 
@@ -216,7 +240,6 @@ def logout():
 @login_required
 def index():
     items, total_value, currency_allocation, history_dates, history_values, asset_metrics = get_portfolio_data()
-    # Alphabetisch sortiert nach Namen für das Dropdown im Suchen-Tab
     assets = Asset.query.order_by(Asset.name.asc()).all()
     
     search_query = request.args.get('q', '').strip()
@@ -327,5 +350,33 @@ def delete_dividend(div_id):
         flash('Fehler beim Löschen.', 'danger')
     return redirect(url_for('index'))
 
+@app.route('/api/asset_history/<string:symbol>')
+@login_required
+def api_asset_history(symbol):
+    try:
+        t = Ticker(symbol.upper())
+        hist_df = t.history(period='1y')
+        
+        dates = []
+        prices = []
+        
+        if not hist_df.empty:
+            # MultiIndex prüfen
+            if symbol.upper() in hist_df.index.get_level_values(0):
+                asset_hist = hist_df.loc[symbol.upper()]
+                for idx, row in asset_hist.iterrows():
+                    d_val = idx[1] if isinstance(idx, tuple) else idx
+                    dates.append(str(d_val)[:10])
+                    prices.append(float(row['close']))
+            else:
+                # Fallback falls kein MultiIndex
+                for idx, row in hist_df.iterrows():
+                    dates.append(str(idx)[:10])
+                    prices.append(float(row['close']))
+                    
+        return {"dates": dates, "prices": prices}
+    except Exception as e:
+        return {"dates": [], "prices": [], "error": str(e)}, 500
+    
 if __name__ == '__main__':
     app.run(debug=True)
