@@ -79,7 +79,7 @@ Bevor du den systemd-Dienst einrichtest, kannst du Gunicorn manuell im Vordergru
 source venv/bin/activate
 gunicorn -c gunicorn.conf.py app:app
 ```
-Du solltest die Gunicorn-Logausgabe sehen und die App lokal (bzw. über den Proxy) testen können. Zum Beenden drücke `Strg + C`.
+Du solltest die Gunicorn-Logausgabe in den Logfiles sehen und die App lokal (bzw. über den Proxy) testen können. Zum Beenden drücke `Strg + C`.
 
 ---
 
