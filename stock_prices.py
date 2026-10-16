@@ -70,7 +70,7 @@ def get_prices_in_eur(ticker_symbols):
             'priceToBook' : statistic_data.get('priceToBook', 0),
             'pegRatio': statistic_data.get('pegRatio', 0.0),
             'beta' : statistic_data.get('beta', 0.0), 
-            'profitMargins' : summary_data.get('profitMargins', 0.0).   #  Die Nettomarge. Von jedem Euro Umsatz bleiben der Allianz knapp 10 Cent als Reingewinn. 
+            'profitMargins' : summary_data.get('profitMargins', 0.0)   #  Die Nettomarge. Von jedem Euro Umsatz bleiben der Allianz knapp 10 Cent als Reingewinn. 
         }
         
     pprint(myprices)

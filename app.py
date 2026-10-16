@@ -70,7 +70,7 @@ def get_portfolio_data():
     if "USDEUR=X" not in tickers_list:
         tickers_list.append("USDEUR=X")
 
-    data = Ticker(tickers_list)
+    data = Ticker(tickers_list, asynchronous=True)
     prices = data.price
     summary_detail = data.summary_detail
     key_stats = data.key_stats
