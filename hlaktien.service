@@ -1,0 +1,15 @@
+[Unit]
+Description=Gunicorn instance to serve Aktien Portfolio Manager
+After=network.target
+
+[Service]
+User=hergen
+Group=wheel
+WorkingDirectory=/home/hergen/Aktien
+Environment="LD_LIBRARY_PATH=/opt/python/lib"
+Environment="SECRET_KEY=SECRET_KEY_FOR_FLASK_LOGIN"
+ExecStart=/home/hergen/Aktien/venv/bin/gunicorn --config gunicorn.conf.py app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
