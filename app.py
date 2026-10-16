@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -9,7 +11,7 @@ from datetime import date
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portfolio.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'sicheres-geheimes-schluesselwort-hier-einsetzen'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback_secure_Secret_Key')
 db = SQLAlchemy(app)
 
 # --- LOGIN MANAGER SETUP ---
