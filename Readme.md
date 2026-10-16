@@ -27,6 +27,8 @@ Eine moderne, webbasierte Flask-Anwendung zur Verwaltung eines persönlichen Akt
 ## 📦 Installation & Einrichtung (Linux / Produktionsserver)
 
 Diese Anleitung beschreibt die Einrichtung auf einem Linux-Server mit systemd und Gunicorn.
+Die Pfade musst du bitte anpassen. Da ist immer dann notwendig wenn `hergen` auftaucht.
+Das ist mein Vorname; ja ich weiss, kennt keine Sau.
 
 ### 1. Repository klonen & Verzeichnis vorbereiten
 ```bash
