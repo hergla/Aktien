@@ -11,7 +11,7 @@ Eine moderne, webbasierte Flask-Anwendung zur Verwaltung eines persönlichen Akt
 * **Transaktions- & Dividendenmanagement:** Käufe erfassen, bearbeiten oder löschen sowie erfasste Dividenden verwalten.
 * **Aktiensuche:** Integrierte Yahoo-Suche zum schnellen Finden und Anlegen von Aktien und ETFs.
 * **Charts:** Interaktive Diagramme (Asset-Allocation nach Währungen, historischer Depotverlauf, Einzelkurs-Charts) via Chart.js.
-* **Sicherheit:** Benutzerauthentifizierung via Flask-Login (Passwort-Hashing).
+* **Sicherheit & Benutzerverwaltung:** Authentifizierung via Flask-Login mit Passwort-Hashing und integriertem Admin-Skript zur Benutzererstellung.
 
 ---
 
@@ -55,6 +55,31 @@ accesslogformat = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 loglevel = "info"
 ```
 *(Hinweis: Erstelle vorher den Log-Ordner mit `mkdir -p ~/Aktien/log`)*
+
+---
+
+## 👤 Benutzerverwaltung (`user_admin.py`)
+
+Da die Registrierung in der Anwendung geschützt ist, werden Benutzer über ein separates Administrationsskript in der Datenbank angelegt.
+
+Führe das Skript im aktivierten Virtual Environment aus, um einen Benutzer hinzuzufügen:
+```bash
+source venv/bin/activate
+python user_admin.py
+```
+*(Folge den Anweisungen im Terminal, um Benutzernamen und Passwort einzugeben).*
+
+---
+
+## 🧪 Manueller Start & Test mit Gunicorn
+
+Bevor du den systemd-Dienst einrichtest, kannst du Gunicorn manuell im Vordergrund starten, um zu prüfen, ob die Anwendung fehlerfrei startet und reagiert:
+
+```bash
+source venv/bin/activate
+gunicorn -c gunicorn.conf.py app:app
+```
+Du solltest die Gunicorn-Logausgabe sehen und die App lokal (bzw. über den Proxy) testen können. Zum Beenden drücke `Strg + C`.
 
 ---
 
@@ -112,10 +137,13 @@ Um die App sicher per HTTPS (Port 443) über Apache erreichbar zu machen, lege e
     SSLCertificateKeyFile /pfad/zu/privkey.pem
 
     ProxyPreserveHost On
-    ProxyPass / http://127.0.0.1:5002/
-    ProxyPassReverse / http://127.0.0.1:5002/
+    ProxyPass /aktien/ http://10.1.1.100:5002/
+    ProxyPassReverse /aktien/ http://10.1.1.100:5002/
+    ProxyPass /aktien http://10.1.1.100:5002/
+    ProxyPassReverse /aktien http://10.1.1.100:5002/
 
     RequestHeader set X-Forwarded-Proto "https"
+    RequestHeader set X-Forwarded-Prefix "/aktien"
 </VirtualHost>
 ```
 
