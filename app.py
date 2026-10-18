@@ -89,6 +89,8 @@ def get_portfolio_data():
 
     portfolio_items = []
     total_current_value = 0.0
+    total_invested_value = 0.0
+
     currency_allocation = {"EUR": 0.0, "USD": 0.0}
     asset_metrics = {}
 
@@ -118,7 +120,8 @@ def get_portfolio_data():
         pnl_percent = (pnl / invested_eur * 100) if invested_eur > 0 else 0.0
 
         total_current_value += current_value_eur
-        
+        total_invested_value += invested_eur
+
         if asset.currency in currency_allocation:
             currency_allocation[asset.currency] += current_value_eur
         else:
@@ -211,7 +214,7 @@ def get_portfolio_data():
     history_dates = [h.date.strftime("%Y-%m-%d") for h in history_records]
     history_values = [h.total_value for h in history_records]
 
-    return portfolio_items, total_current_value, currency_allocation, history_dates, history_values, asset_metrics
+    return portfolio_items, total_current_value, currency_allocation, history_dates, history_values, asset_metrics, total_invested_value
 
 
 # --- AUTH & ROUTEN ---
@@ -243,7 +246,7 @@ def logout():
 @app.route('/')
 @login_required
 def index():
-    items, total_value, currency_allocation, history_dates, history_values, asset_metrics = get_portfolio_data()
+    items, total_value, currency_allocation, history_dates, history_values, asset_metrics, total_invested_value = get_portfolio_data()
     assets = Asset.query.order_by(Asset.name.asc()).all()
     
     search_query = request.args.get('q', '').strip()
@@ -259,7 +262,8 @@ def index():
         asset_metrics=asset_metrics,
         assets=assets, 
         search_results=search_results,
-        search_query=search_query
+        search_query=search_query,
+        total_invested_value=total_invested_value
     )
 
 @app.route('/add_asset', methods=['POST'])

@@ -72,8 +72,18 @@
                     <div class="col-md-4">
                         <div class="card text-white bg-primary shadow-sm mb-3">
                             <div class="card-body">
-                                <h5 class="card-title">Gesamtwert (EUR)</h5>
-                                <h3>{{ "%.2f"|format(total_value) }} €</h3>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Gesamtwert:</span>
+                                    <strong class="fs-5">{{ "%.2f"|format(total_value) }} €</strong>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Investiert:</span>
+                                    <strong class="fs-5">{{ "%.2f"|format(total_invested_value) }} €</strong>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>Gewinn:</span>
+                                    <strong class="fs-5">{{ "%.2f"|format((total_value - total_invested_value) / total_invested_value * 100) }} %</strong>
+                                </div>
                             </div>
                         </div>
                         <!-- Währungsverteilung (Doughnut Chart) -->
