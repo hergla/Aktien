@@ -10,6 +10,7 @@ stockprices.py
 x.py
 x
 gunicorn.conf.py
+test.html
 
 # SQLite Datenbank (lokale Depot-Daten)
 instance/
