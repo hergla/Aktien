@@ -1,6 +1,6 @@
 import os
 from datetime import date
-
+import getpass
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -9,11 +9,17 @@ from yahooquery import Ticker
 from aktiensuche import searchbyname
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+print("--- LAUFE ALS BENUTZER:", getpass.getuser(), flush=True)
+
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(
     app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
 )
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portfolio.db'
+
+os.makedirs(app.instance_path, exist_ok=True)
+db_path = os.path.join(app.instance_path, 'portfolio.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback_secure_Secret_Key')
 db = SQLAlchemy(app)
@@ -387,4 +393,4 @@ def api_asset_history(symbol):
         return {"dates": [], "prices": [], "error": str(e)}, 500
     
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=True)

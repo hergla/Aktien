@@ -1,6 +1,6 @@
 import sys
 
-sys.path.insert(0, 'home/hergen/Aktien')
+sys.path.insert(0, '/var/www/Aktien')
 
 from app import app as application
 
